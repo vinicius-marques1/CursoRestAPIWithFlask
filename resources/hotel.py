@@ -28,23 +28,23 @@ hoteis = [
 
 class Hoteis(Resource):
     def get(self):
-        return hoteis
+        return {"hoteis": [hotel.json() for hotel in HotelModel.query.all()]}
 
 
 class Hotel(Resource):
 
     argumentos = reqparse.RequestParser()
-    argumentos.add_argument('name')
-    argumentos.add_argument('stars')
+    argumentos.add_argument('name', type=str, required=True, help="The field 'name' can not be left blank")
+    argumentos.add_argument('stars', type=float, required=True, help="The field stars can not be left blank")
     argumentos.add_argument('daily')
     argumentos.add_argument('city')
 
 
 
     def get(self, hotel_id):
-        hotel = Hotel._find_hotel(hotel_id)
+        hotel = HotelModel.find_hotel(hotel_id)
         if hotel:
-            return hotel
+            return hotel.json()
         return {'message': 'Hotel not found.'}, 404
 
 
@@ -54,31 +54,40 @@ class Hotel(Resource):
 
         dados = Hotel.argumentos.parse_args()
         hotel = HotelModel(hotel_id, **dados)
-        hotel.save_hotel()
-
+        try:
+            hotel.save_hotel()
+        except:
+            return {"message": "An internal error ocurred trying to save hotel."}, 500
         return hotel.json()
     
 
     def put(self, hotel_id):
         dados = Hotel.argumentos.parse_args()
-        hotel_obj = HotelModel(hotel_id, **dados)
-        new_hotel = hotel_obj.json()
 
-        hotel = Hotel._find_hotel(hotel_id)
+        hotel = HotelModel.find_hotel(hotel_id)
         if hotel:
-            hotel.update(new_hotel)
-            return new_hotel, 200
+            hotel.update_hotel(**dados)
+            try:
+                hotel.save_hotel()
+            except:
+                return {"message": "An internal error ocurred trying to save hotel."}, 500
+            return hotel.json(), 200
         
-        hoteis.append(new_hotel)
-        return new_hotel, 201
+        new_hotel = HotelModel(hotel_id, **dados)
+        try:
+            new_hotel.save_hotel()
+        except Exception as e:
+            print(e)
+            return {"message": "An internal error ocurred trying to save hotel."}, 500
+        return new_hotel.json(), 201
 
 
     def delete(self, hotel_id):
-        hotel = Hotel._find_hotel(hotel_id)
+        hotel = HotelModel.find_hotel(hotel_id)
         if hotel:
-            id = hotel['hotel_id']
-            global hoteis
-            hoteis = [hotel for hotel in hoteis if hotel['hotel_id'] != hotel_id]
-            return {"message": f"Hotel with id '{id}' successfully deleted!"}, 200
-        
-        return {"message": "Hotel does not exist"}, 400
+            try:
+                hotel.delete_hotel()
+            except:
+                return {"message": "An error ocurred trying to delete hotel."}, 500
+            return {"message": "Hotel deleted"}
+        return {"message": "Hotel not found"}, 404
