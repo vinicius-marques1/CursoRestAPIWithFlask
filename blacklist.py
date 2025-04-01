@@ -1,0 +1,1 @@
+BLACKLIST = set() # Set to store blacklisted JWTs
